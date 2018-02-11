@@ -10,15 +10,17 @@
 
 using System;
 using System.IO;
+using System.Collections.Generic;
 using OpenHardwareMonitor.Hardware;
+using Newtonsoft.Json;
 
 
 namespace OpenHardwareMonitorReport {
 
   public class Config {
-    public string ConfigFile = "sensors.cfg";
-    public String[] SensorNames;
-    public String[] SensorValues;
+    public string ConfigFile = "sensors.json";
+    public Dictionary<String, String[]> Sensors;
+    public Dictionary<String, String[]> SensorValues;
   }
 
   class Program {
@@ -38,10 +40,18 @@ namespace OpenHardwareMonitorReport {
 
       if (File.Exists(cnfg.ConfigFile))
       {
-        cnfg.SensorNames = File.ReadAllLines(cnfg.ConfigFile);
-        cnfg.SensorValues = new String[cnfg.SensorNames.Length];
+        using (StreamReader r = new StreamReader(cnfg.ConfigFile))
+        {
+          cnfg.Sensors = JsonConvert.DeserializeObject<Dictionary<String, String[]>>(r.ReadToEnd());
+        }
+
+        cnfg.SensorValues = new Dictionary<string, string[]>(cnfg.Sensors);
         computer.Accept(new SensorVisitor(cnfg));
-        Console.Out.Write(string.Join(":", cnfg.SensorValues));
+        foreach (KeyValuePair<string, string[]> curSensor in cnfg.SensorValues)
+        {
+          Console.Out.Write(curSensor.Key + ":");
+          Console.Out.WriteLine(string.Join(":", curSensor.Value));
+        }
       }
       else
       {
@@ -77,10 +87,13 @@ namespace OpenHardwareMonitorReport {
 
     public void VisitSensor(ISensor sensor)
     {
-      int iIndex = Array.IndexOf(m_config.SensorNames, sensor.Identifier.ToString());
-      if (iIndex >= 0)
+      foreach (KeyValuePair<string, string[]> curSensor in m_config.Sensors)
       {
-        m_config.SensorValues[iIndex] = sensor.Value.ToString().Replace(",",".");
+        int iIndex = Array.IndexOf(curSensor.Value, sensor.Identifier.ToString());
+        if (iIndex >= 0)
+        {
+          m_config.SensorValues[curSensor.Key][iIndex] = sensor.Value.ToString().Replace(",",".");
+        }
       }
     }
 
