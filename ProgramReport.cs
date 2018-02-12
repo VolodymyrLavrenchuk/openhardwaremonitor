@@ -49,7 +49,7 @@ namespace OpenHardwareMonitorReport {
         computer.Accept(new SensorVisitor(cnfg));
         foreach (KeyValuePair<string, string[]> curSensor in cnfg.SensorValues)
         {
-          Console.Out.Write(curSensor.Key + ":");
+          Console.Out.Write(curSensor.Key + " ");
           Console.Out.WriteLine(string.Join(":", curSensor.Value));
         }
       }
