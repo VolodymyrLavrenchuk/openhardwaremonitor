@@ -38,9 +38,9 @@ namespace OpenHardwareMonitorReport {
 
       computer.Open();
 
-      if (File.Exists(cnfg.ConfigFile))
-      {
-        using (StreamReader r = new StreamReader(cnfg.ConfigFile))
+      if (args.Length > 0 && File.Exists(args[0])) {
+
+        using (StreamReader r = new StreamReader(args[0]))
         {
           cnfg.Sensors = JsonConvert.DeserializeObject<Dictionary<String, String[]>>(r.ReadToEnd());
         }
