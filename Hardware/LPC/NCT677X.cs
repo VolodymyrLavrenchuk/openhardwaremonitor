@@ -281,8 +281,6 @@ namespace OpenHardwareMonitor.Hardware.LPC {
         case Chip.NCT6791D:
         case Chip.NCT6792D:
         case Chip.NCT6792DA:
-        case Chip.NCT6793D:
-        case Chip.NCT6795D:
         case Chip.NCT6796D:
         case Chip.NCT6796DR:
         case Chip.NCT6797D:
