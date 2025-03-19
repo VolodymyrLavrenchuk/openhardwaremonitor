@@ -11,43 +11,92 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using OpenHardwareMonitor.Hardware;
 using Newtonsoft.Json;
 
 
 namespace OpenHardwareMonitorReport {
 
-  public class Config {
+  public class Config
+  {
     public string ConfigFile = "sensors.json";
     public Dictionary<String, String[]> Sensors;
-    public Dictionary<String, String[]> SensorValues;
   }
 
   class Program {
-    static void Main(string[] args) {
 
+    static string GetSensorsValues(IVisitor visitor, bool genReport = false)
+    {
+
+      string ret = "";
       Computer computer = new Computer();
-      Config cnfg = new Config();
 
       computer.CPUEnabled = true;
       computer.FanControllerEnabled = false;
-      computer.GPUEnabled = false ;
+      computer.GPUEnabled = false;
       computer.HDDEnabled = false;
       computer.MainboardEnabled = true;
       computer.RAMEnabled = true;
 
       computer.Open();
+      computer.Accept(visitor);
+      if (genReport)
+      {
+        ret = computer.GetReport();
+      }
+      
+      computer.Close();
+
+      return ret;
+    }
+
+    static bool GetValidSensorsValues(Config cnfg, Dictionary<String, String[]> sensors)
+    {
+      cnfg.Sensors = sensors.ToDictionary(entry => entry.Key, entry => (String[])entry.Value.Clone());
+      IVisitor sensorsVisitor = new SensorVisitor(cnfg);
+
+      GetSensorsValues(sensorsVisitor);
+
+      foreach (KeyValuePair<string, string[]> curSensor in cnfg.Sensors)
+      {
+        for (int i = 0; i < curSensor.Value.Length; i++)
+        {
+          try
+          {
+            Convert.ToDouble(curSensor.Value[i]);
+            curSensor.Value[i] = curSensor.Value[i].Replace(",", ".");
+          }
+          catch (FormatException)
+          {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    }
+
+    static void Main(string[] args) {
 
       if (args.Length > 0 && File.Exists(args[0])) {
 
+        Dictionary<String, String[]> sensors;
+
         using (StreamReader r = new StreamReader(args[0]))
         {
-          cnfg.Sensors = JsonConvert.DeserializeObject<Dictionary<String, String[]>>(r.ReadToEnd());
+          sensors = JsonConvert.DeserializeObject<Dictionary<String, String[]>>(r.ReadToEnd());
         }
 
-        cnfg.SensorValues = new Dictionary<string, string[]>(cnfg.Sensors);
-        computer.Accept(new SensorVisitor(cnfg));
-        foreach (KeyValuePair<string, string[]> curSensor in cnfg.SensorValues)
+        Config cnfg = new Config();
+
+        while (!GetValidSensorsValues(cnfg, sensors))
+        {
+          System.Threading.Thread.Sleep(1000);
+        }
+
+        foreach (KeyValuePair<string, string[]> curSensor in cnfg.Sensors)
         {
           Console.Out.Write(curSensor.Key + " ");
           Console.Out.WriteLine(string.Join(":", curSensor.Value));
@@ -55,11 +104,8 @@ namespace OpenHardwareMonitorReport {
       }
       else
       {
-        computer.Accept(new UpdateVisitor());
-        Console.Out.Write(computer.GetReport());
+        Console.Out.Write(GetSensorsValues(new UpdateVisitor(), true));
       }
-
-      computer.Close();
     }
   }
 
@@ -92,7 +138,7 @@ namespace OpenHardwareMonitorReport {
         int iIndex = Array.IndexOf(curSensor.Value, sensor.Identifier.ToString());
         if (iIndex >= 0)
         {
-          m_config.SensorValues[curSensor.Key][iIndex] = sensor.Value.ToString().Replace(",",".");
+          m_config.Sensors[curSensor.Key][iIndex] = sensor.Value.ToString();
         }
       }
     }
